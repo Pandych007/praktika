@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>практика</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin-bottom: 10px;
+      }
+
+      input[type="text"] {
+        width: 200px;
+        height: 30px;
+        padding: 5px;
+        font-size: 14px;
+      }
+
+      button {
+        height: 40px;
+        padding: 5px 20px;
+        font-size: 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+
+      ul {
+        list-style-type: none;
+        padding-left: 0;
+      }
+
+      li {
+        margin-bottom: 5px;
+      }
+
+      .progress {
+        height: 20px;
+        margin-top: 20px;
+        background-color: #f2f2f2;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background-color: #4caf50;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>кодовое слово</h1>
+      <div>
+        <input type="text" placeholder="Введите ключевое слово" id="keywordInput">
+        <button id="searchButton">Поиск</button>
+      </div>
+      <ul id="urlList"></ul>
+      <div class="progress" style="display: none;" id="progressBar">
+        <div class="progress-bar" role="progressbar" id="progressBarInner"></div>
+      </div>
+    </div>
+<h1>кодовые слова:</h1>
+<h3>silver</h3>
+<h3>gold</h3>
+    <script>
+      const searchButton = document.getElementById('searchButton');
+      const keywordInput = document.getElementById('keywordInput');
+      const urlList = document.getElementById('urlList');
+      const progressBar = document.getElementById('progressBar');
+      const progressBarInner = document.getElementById('progressBarInner');
+
+      searchButton.addEventListener('click', async () => {
+        const keyword = keywordInput.value;
+        if (!keyword) return;
+        const urls = await getUrls(keyword);
+        if (urls) {
+          displayUrls(urls);
+        }
+      });
+
+      async function getUrls(keyword) {
+        try {
+          const response = await fetch(`http://127.0.0.1:5501/search/${keyword}`);
+          if (response.ok) {
+            const urls = await response.json();
+            return urls;
+          } else {
+            console.error('произошла ошибка', response.status, response.statusText);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      function displayUrls(urls) {
+        urlList.innerHTML = '';
+        for (const url of urls) {
+          const li = document.createElement('li');
+          li.textContent = url;
+          li.addEventListener('click', () => downloadContentWithProgress(url));
+          urlList.appendChild(li);
+        }
+      }
+
+      async function downloadContentWithProgress(url) {
+        try {
+          const response = await fetch(`http://127.0.0.1:5501/download/${encodeURIComponent(url)}`);
+          if (response.ok) {
+            progressBar.style.display = 'block';
+            progressBarInner.style.width = '0%';
+            const contentLength = response.headers.get('Content-Length');
+            const reader = response.body.getReader();
+            let bytesReceived = 0;
+            let content = '';
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              bytesReceived += value.length;
+              content += new TextDecoder('utf-8').decode(value);
+              const progress = Math.round((bytesReceived / contentLength) * 100);
+              progressBarInner.style.width = `${progress}%`;
+            }
+            localStorage.setItem('content', content);
+            console.log(`то что вы скачали -> ${content}`);
+            progressBar.style.display = 'none';
+            console.log('конец загрузки');
+          } else {
+            console.error('Ошибка:', response.status, response.statusText);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    </script>
+  </body>
+</html>
